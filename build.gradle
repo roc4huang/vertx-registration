@@ -1,0 +1,88 @@
+// use old way of importing buildscript dependencies and applying flyway plugin
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'org.postgresql:postgresql:9.4.1207.jre7'
+        classpath 'org.flywaydb:flyway-gradle-plugin:3.2.1'
+    }
+}
+
+// use new way of importing plugins for all the vertx related things
+plugins {
+    id 'groovy'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '1.2.2'
+}
+
+// old way of applying a plugin
+apply plugin: 'org.flywaydb.flyway'
+
+// configure flyway plugin, see http://flywaydb.org/getstarted/firststeps/gradle.html
+flyway {
+    url = 'jdbc:postgresql:vertx'
+}
+
+// this are the repository declarations for application dependencies
+repositories {
+    jcenter()
+    mavenCentral()
+    maven {
+        url = 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+}
+
+def vertxVersion = '3.2.0'
+
+dependencies {
+    compile "io.vertx:vertx-core:$vertxVersion"
+    compile "io.vertx:vertx-lang-groovy:$vertxVersion"
+    compile "io.vertx:vertx-jdbc-client:$vertxVersion"
+    compile "io.vertx:vertx-auth-jwt:$vertxVersion"
+    compile "io.vertx:vertx-mail-client:$vertxVersion"
+    compile "io.vertx:vertx-shell:$vertxVersion"
+    runtime 'org.postgresql:postgresql:9.4.1207.jre7'
+}
+
+version = '0.0.1'
+sourceCompatibility = '1.8' // vertx needs Java 8
+
+// this is used by the gradle application plugin, and also passed as argument to vertx for redeploy
+mainClassName = 'io.vertx.core.Launcher'
+
+// this is the entry point to the application
+def mainVerticleName = 'groovy:de.thokari.vertx.registration.start'
+
+// declare resource directories to be on the classpath and copied into the jar file
+// during build time, the flyway plugin will use this to find migrations
+// during runtime, vertx will use this to load configuration
+sourceSets.main.resources {
+    srcDirs = ['flyway', 'config']
+}
+
+// configure shadowJar plugin
+shadowJar {
+    classifier = 'fat'
+    manifest {
+        attributes 'Main-Verticle': mainVerticleName
+    }
+    mergeServiceFiles {
+        include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
+    }
+}
+
+// use ./gradlew run to start in dev mode
+def watchForChange = 'src/**/*.groovy'
+def doOnChange = './gradlew classes'
+def config = 'config/dev.json'
+run {
+    classpath = sourceSets.main.runtimeClasspath
+    args = ['run', mainVerticleName, "--redeploy=$watchForChange", "--launcher-class=$mainClassName", "--on-redeploy=$doOnChange", "-conf=$config"]
+}
+
+
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.10'
+}
