@@ -8,14 +8,15 @@ void vertxStart(Future<Void> future) {
     def appConfig = vertx.currentContext().config()
     println "Using configuration: $appConfig"
 
-    vertx.deployVerticle 'groovy:de.thokari.vertx.registration.registration', [ config: appConfig.registration ], { res1 ->
+    vertx.deployVerticle 'groovy:de.thokari.vertx.registration.registration', [ config: appConfig ], { res1 ->
         if (res1.succeeded()) {
             future.complete()
             vertx.setTimer 500, {
                 def msg = [
                     email: 't.hirsch@sendandstore.de',
                     password: 'secret123',
-                    passwordConfirm: 'secret123'
+                    passwordConfirm: 'secret123',
+                    permissions: [ 'admin' ]
                 ]
                 vertx.eventBus().send('registration.register', msg, { res2 ->
                     if (res2.succeeded()) {
@@ -26,7 +27,7 @@ void vertxStart(Future<Void> future) {
                         vertx.eventBus().send('registration.confirm', confirmMsg, { res3 ->
                             println 'CONF_REPLY ' + res3.result().body()
                             def loginMsg = [ email: msg.email, password: msg.password ]
-                            vertx.eventBus().send('registration.login', msg, { res4 ->
+                            vertx.eventBus().send('registration.login', loginMsg, { res4 ->
                                 println 'LOGIN_REPLY ' + res4.result().body()
                                 token = res4.result().body()
                             })
@@ -42,7 +43,7 @@ void vertxStart(Future<Void> future) {
         }
     }
 
-    vertx.deployVerticle 'groovy:de.thokari.vertx.registration.httpEndpoint', [ config: appConfig.httpEndpoint ], { res2 ->
+    vertx.deployVerticle 'groovy:de.thokari.vertx.registration.httpEndpoint', [ config: appConfig ], { res2 ->
         if (!res2.succeeded()) {
             res2.cause().printStackTrace()
         }

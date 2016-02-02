@@ -73,7 +73,7 @@ shadowJar {
 }
 
 // use ./gradlew run to start in dev mode
-def watchForChange = 'src/**/*.groovy, web/**' // TODO use 'source' webroot directly during development time, via config
+def watchForChange = 'src/**/*.groovy, config/**, web/**' // TODO use 'source' webroot directly during development time, via config
 def doOnChange = './gradlew classes'
 def config = 'config/dev.json'
 

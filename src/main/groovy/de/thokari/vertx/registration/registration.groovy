@@ -3,26 +3,17 @@ package de.thokari.vertx.registration
 import io.vertx.groovy.ext.auth.jwt.JWTAuth
 import io.vertx.groovy.ext.jdbc.JDBCClient
 import io.vertx.groovy.ext.mail.MailClient
-import io.vertx.groovy.core.Future
+import io.vertx.core.Future
 import org.mindrot.jbcrypt.BCrypt
 
-def registrationConfig = vertx.currentContext().config()
-
-def authConfig = [
-    keyStore: [
-        path: 'keystore.jceks',
-        type: 'jceks',
-        password: 'password'
-    ]
-]
+def appConfig = vertx.currentContext().config()
 def jdbcConfig = [
-    url: "jdbc:postgresql:${registrationConfig.dbName}",
+    url: "jdbc:postgresql:${appConfig.dbName}",
     driver_class: 'org.postgresql.Driver'
 ]
-
-def authProvider = JWTAuth.create(vertx, authConfig)
+def authProvider = JWTAuth.create(vertx, appConfig.jwt)
 def dbClient = JDBCClient.createShared(vertx, jdbcConfig)
-def mailClient = MailClient.createShared(vertx, registrationConfig.emailServer, 'MailClient')
+def mailClient = MailClient.createShared(vertx, appConfig.emailServer, 'MailClient')
 def eb = vertx.eventBus()
 
 eb.consumer 'registration.register', { msg ->
@@ -78,10 +69,10 @@ eb.consumer 'registration.confirm', { msg ->
 eb.consumer 'registration.login', { msg ->
     def email = msg.body().email
     def candidate = msg.body().password
-    def authorities = msg.body().authorities
-    comparePassword (dbClient, email, candidate, { res1 ->
+    comparePasswordAndGetPermissions (dbClient, email, candidate, { res1 ->
         if (res1.succeeded()) {
-            def token = generateLoginToken(authProvider, email, authorities)
+            def permissions = res1.result()
+            def token = generateLoginToken(authProvider, email, permissions)
             replySuccess msg, [ token: token ]
         } else {
             replyError msg, res1.cause().message
@@ -97,15 +88,15 @@ def sendEmail (mailClient, email, token, cb) {
 
 def generateRegistrationToken (authProvider, email) {
     def payload = [ email: email ]
-    // TODO not fake permissions
-    def options = [ permissions: ['admin'], expiresInMinutes: 60 * 24 ]
+    def expiresInMinutes = vertx.currentContext().config().registrationExpiresInMinutes
+    def options = [ expiresInMinutes: expiresInMinutes ]
     authProvider.generateToken payload, options
 }
 
 def generateLoginToken (authProvider, email, permissions) {
     def payload = [ email: email ]
-    // TODO define at registration...
-    def options = [ permissions: permissions, expiresInMinutes: 1 ]
+    def expiresInMinutes = vertx.currentContext().config().loginExpiresInMinutes
+    def options = [ permissions: permissions, expiresInMinutes: expiresInMinutes ]
     authProvider.generateToken payload, options
 }
 
@@ -119,9 +110,9 @@ def saveRegistration (dbClient, email, password, permissions, cb) {
             if (res.succeeded()) {
                 def hash = res.result()
                 java.sql.Date sqlDate = new java.sql.Date(new java.util.Date().time)
-                def params = [ email, false, hash, sqlDate ]
-                // TODO enter permissions
-                conn.updateWithParams('INSERT INTO registration (email, email_confirmed, password, created) VALUES (?, ?, ?, ?)', params, cb)
+                def params = [ email, false, hash, permissions.join(','), sqlDate ]
+                // TODO use array
+                conn.updateWithParams('INSERT INTO registration (email, email_confirmed, password, permissions, created) VALUES (?, ?, ?, ?, ?)', params, cb)
             } else {
                 cb(res)
             }
@@ -135,7 +126,7 @@ def confirmEmail (dbClient, email, cb) {
             if (res1.succeeded()) {
                 def emailConfirmed = res1.result().results[0][0]
                 if (emailConfirmed == true) {
-                    cb(Future.fail('Email address already confirmed'))
+                    cb(Future.failedFuture('Email address already confirmed'))
                 } else {
                     conn.updateWithParams('UPDATE registration SET email_confirmed = ? WHERE email = ?', [ true, email ], cb)
                 }
@@ -146,23 +137,22 @@ def confirmEmail (dbClient, email, cb) {
     })
 }
 
-def comparePassword (dbClient, email, candidate, cb) {
+def comparePasswordAndGetPermissions (dbClient, email, candidate, cb) {
     withConnection(dbClient, { conn ->
-        conn.queryWithParams('SELECT password FROM registration WHERE email = ?', [ email ], { res1 ->
+        conn.queryWithParams('SELECT password, permissions FROM registration WHERE email = ?', [ email ], { res1 ->
             if (res1.succeeded()) {
                 if (res1.result().numRows < 1) {
-                    future.fail('Credentials do not match')
+                    cb(Future.failedFuture('Credentials do not match'))
                 }
-                def hashed = res1.result().results[0][0]
-                vertx.executeBlocking({ future ->
-                    if (BCrypt.checkpw(candidate, hashed)) {
-                        future.complete(true)
-                    } else {
-                        future.fail('Credentials do not match')
-                    }
-                }, { res2 ->
-                    cb(res2)
-                })
+                def row = res1.result().rows[0]
+                def hashed = row.password
+                def permissions = row.permissions.split(',').toList() // String[] != List == JsonArray
+                def result = BCrypt.checkpw(candidate, hashed)
+                if (result == true) {
+                    cb(Future.succeededFuture(permissions))
+                } else {
+                    cb(Future.failedFuture('Credentials do not match'))
+                }
             } else {
                 cb(res1)
             }

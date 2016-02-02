@@ -6,17 +6,9 @@ import io.vertx.groovy.ext.auth.jwt.JWTAuth
 import io.vertx.groovy.ext.web.handler.JWTAuthHandler
 import io.vertx.groovy.ext.web.handler.StaticHandler
 
+def appConfig = vertx.currentContext().config()
+def jwtAuth = JWTAuth.create(vertx, appConfig.jwt)
 def router = Router.router(vertx)
-
-// Create a JWT Auth Provider
-def jwtAuth = JWTAuth.create(vertx, [
-    keyStore: [
-        type: 'jceks',
-        path: 'keystore.jceks',
-        password: 'password'
-    ]
-])
-
 def eb = vertx.eventBus()
 
 // parse request body
@@ -52,9 +44,10 @@ router.get('/api/protected').handler({ ctx ->
 router.route('/api/protected/admin').handler(JWTAuthHandler.create(jwtAuth).addAuthority('admin'))
 
 router.get('/api/protected/admin').handler({ ctx ->
-    def authorities = ctx.user().principal().permissions
+    def payload = ctx.user().principal() // content of the token
+    def permissions = payload.permissions
     ctx.response().putHeader('Content-Type', 'text/plain')
-    ctx.response().end('This can only be accessed by admins. Your authorities are: ' + authorities.join(','))
+    ctx.response().end('This can only be accessed by admins. Your roles are: ' + permissions.join(','))
 })
 
 // Serve the non private static pages
