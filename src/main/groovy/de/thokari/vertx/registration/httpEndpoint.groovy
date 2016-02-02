@@ -20,7 +20,7 @@ def jwtAuth = JWTAuth.create(vertx, [
 def eb = vertx.eventBus()
 
 // parse request body
-router.post('/api/*').handler(BodyHandler.create())
+router.route('/api/*').handler(BodyHandler.create().setUploadsDirectory('/tmp/vertx-file-uploads'))
 
 // this route is excluded from the auth handler (it represents your login endpoint)
 router.post('/api/login').handler({ ctx ->
@@ -43,33 +43,18 @@ router.post('/api/login').handler({ ctx ->
 // protect the API (any authority is allowed)
 router.route('/api/protected').handler(JWTAuthHandler.create(jwtAuth))
 
-router.get("/api/protected").handler({ ctx ->
-  ctx.response().putHeader("Content-Type", "text/plain")
-  ctx.response().end("this secret is not defcon!")
+router.get('/api/protected').handler({ ctx ->
+    ctx.response().putHeader('Content-Type', 'text/plain')
+    ctx.response().end('This can be accessed by all roles')
 })
 
-// protect the API (defcon1 authority is required)
-router.route("/api/protected/defcon1").handler(JWTAuthHandler.create(jwt).addAuthority("defcon1"))
+// protect the API (admin authority is required)
+router.route('/api/protected/admin').handler(JWTAuthHandler.create(jwtAuth).addAuthority('admin'))
 
-router.get("/api/protected/defcon1").handler({ ctx ->
-  ctx.response().putHeader("Content-Type", "text/plain")
-  ctx.response().end("this secret is defcon1!")
-})
-
-// protect the API (defcon2 authority is required)
-router.route("/api/protected/defcon2").handler(JWTAuthHandler.create(jwt).addAuthority("defcon2"))
-
-router.get("/api/protected/defcon2").handler({ ctx ->
-  ctx.response().putHeader("Content-Type", "text/plain")
-  ctx.response().end("this secret is defcon2!")
-})
-
-// protect the API (defcon3 authority is required)
-router.route("/api/protected/defcon3").handler(JWTAuthHandler.create(jwt).addAuthority("defcon3"))
-
-router.get("/api/protected/defcon3").handler({ ctx ->
-  ctx.response().putHeader("Content-Type", "text/plain")
-  ctx.response().end("this secret is defcon3!")
+router.get('/api/protected/admin').handler({ ctx ->
+    def authorities = ctx.user().principal().permissions
+    ctx.response().putHeader('Content-Type', 'text/plain')
+    ctx.response().end('This can only be accessed by admins. Your authorities are: ' + authorities.join(','))
 })
 
 // Serve the non private static pages

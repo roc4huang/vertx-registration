@@ -11,17 +11,18 @@
     <input type="password" id="password" placeholder="Password"></input>
     <input type="text" id="roles" placeholder="Roles"></input>
     <br>
-    <a href="#" id="generateToken">Log in</a><br>
+    <button id="generateToken">Log in</button><br>
+    <br>
     <div id="token">Current token:</div>
 </div>
 <br>
 <br>
 <div id="test">
-    <a href="#" id="getProtected0">Get Protected Resource (no authority required)</a><br>
-    <a href="#" id="getProtected1">Get Protected Resource (defcon1 authority required)</a><br>
-    <a href="#" id="getProtected2">Get Protected Resource (defcon2 authority required)</a><br>
-    <a href="#" id="getProtected3">Get Protected Resource (defcon3 authority required)</a><br>
+    <a href="#" id="getProtected0">Get Protected Resource (no roles required)</a><br>
+    <a href="#" id="getProtected1">Get Protected Resource (admin role required)</a><br>
     <div id="protected"></div>
+    <br>
+    <button id="generateToken">Log out</button><br>
 </div>
 <script>
     $(document).ready(function () {
@@ -54,23 +55,21 @@
             return function () {
                 $.ajax({
                     url: '/api/protected' + authority,
-                    dataType: 'text',
+                    contentType: 'application/json',
                     headers: {
-                        "Authorization": "Bearer " + $('#token').html().substring(15)
+                        'Authorization': 'Bearer ' + $('#token').html().substring(15)
                     },
                     success: function (text) {
                         $('#protected').html(text);
                     },
                     error: function (err) {
-                        $('#protected').html('Error: ' + err.toString());
+                        $('#protected').html('Error: ' + err.responseText);
                     }
                 });
             }
         };
         $('#getProtected0').on('click', getResource(''));
-        $('#getProtected1').on('click', getResource('/defcon1'));
-        $('#getProtected2').on('click', getResource('/defcon2'));
-        $('#getProtected3').on('click', getResource('/defcon3'));
+        $('#getProtected1').on('click', getResource('/admin'));
     });
 </script>
 </body>

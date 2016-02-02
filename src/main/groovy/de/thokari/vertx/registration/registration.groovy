@@ -78,10 +78,10 @@ eb.consumer 'registration.confirm', { msg ->
 eb.consumer 'registration.login', { msg ->
     def email = msg.body().email
     def candidate = msg.body().password
-    def permissions = msg.body().permissions
+    def authorities = msg.body().authorities
     comparePassword (dbClient, email, candidate, { res1 ->
         if (res1.succeeded()) {
-            def token = generateLoginToken(authProvider, email, permissions)
+            def token = generateLoginToken(authProvider, email, authorities)
             replySuccess msg, [ token: token ]
         } else {
             replyError msg, res1.cause().message
@@ -111,8 +111,9 @@ def generateLoginToken (authProvider, email, permissions) {
 
 def saveRegistration (dbClient, email, password, permissions, cb) {
     withConnection(dbClient, { conn ->
-        // this might actually take some time, better not block
         vertx.executeBlocking({ future ->
+            // this might actually take some time if using more then default of 10 rounds of hashing
+            // better not block the event loop
             future.complete(BCrypt.hashpw(password, BCrypt.gensalt()))
         }, { res ->
             if (res.succeeded()) {
@@ -147,16 +148,17 @@ def confirmEmail (dbClient, email, cb) {
 
 def comparePassword (dbClient, email, candidate, cb) {
     withConnection(dbClient, { conn ->
-        println 'EMAIL' + email
         conn.queryWithParams('SELECT password FROM registration WHERE email = ?', [ email ], { res1 ->
             if (res1.succeeded()) {
-                println res1.result()
+                if (res1.result().numRows < 1) {
+                    future.fail('Credentials do not match')
+                }
                 def hashed = res1.result().results[0][0]
                 vertx.executeBlocking({ future ->
                     if (BCrypt.checkpw(candidate, hashed)) {
                         future.complete(true)
                     } else {
-                        future.fail('Passwords do not match')
+                        future.fail('Credentials do not match')
                     }
                 }, { res2 ->
                     cb(res2)
@@ -178,7 +180,7 @@ def replyError (msg, errorMsg) {
 def replySuccess (msg, content) {
     def body = [ status: 'ok' ]
     if (content) {
-        body += content
+        body += content // just add maps / json objects to merge them... <3 groovy!
     }
     msg.reply(body)
 }
