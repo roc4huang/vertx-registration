@@ -1,0 +1,77 @@
+<html>
+<head>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+</head>
+<body>
+<h1>Web site with public and private pages</h1>
+<br>
+<br>
+<div id="login">
+    <input type="text" id="email" placeholder="Email"></input>
+    <input type="password" id="password" placeholder="Password"></input>
+    <input type="text" id="roles" placeholder="Roles"></input>
+    <br>
+    <a href="#" id="generateToken">Log in</a><br>
+    <div id="token">Current token:</div>
+</div>
+<br>
+<br>
+<div id="test">
+    <a href="#" id="getProtected0">Get Protected Resource (no authority required)</a><br>
+    <a href="#" id="getProtected1">Get Protected Resource (defcon1 authority required)</a><br>
+    <a href="#" id="getProtected2">Get Protected Resource (defcon2 authority required)</a><br>
+    <a href="#" id="getProtected3">Get Protected Resource (defcon3 authority required)</a><br>
+    <div id="protected"></div>
+</div>
+<script>
+    $(document).ready(function () {
+        $('#email').val('t.hirsch@sendandstore.de')
+        $('#password').val('secret123')
+        $('#roles').val('admin')
+        var genToken = function(email, password, authorities) {
+            console.log(name, password, authorities)
+            $.ajax({
+                method: 'POST',
+                url: '/api/login',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    email: email,
+                    password: password,
+                    authorities: authorities.split(',')
+                }),
+                success: function (text) {
+                    $('#token').html('Current Token: ' + text);
+                }
+            });
+        };
+        $('#generateToken').click(function () {
+            var email = $('#email').val()
+            var password = $('#password').val()
+            var roles = $('#roles').val()
+            genToken(email, password, roles)
+        });
+        var getResource = function(authority) {
+            return function () {
+                $.ajax({
+                    url: '/api/protected' + authority,
+                    dataType: 'text',
+                    headers: {
+                        "Authorization": "Bearer " + $('#token').html().substring(15)
+                    },
+                    success: function (text) {
+                        $('#protected').html(text);
+                    },
+                    error: function (err) {
+                        $('#protected').html('Error: ' + err.toString());
+                    }
+                });
+            }
+        };
+        $('#getProtected0').on('click', getResource(''));
+        $('#getProtected1').on('click', getResource('/defcon1'));
+        $('#getProtected2').on('click', getResource('/defcon2'));
+        $('#getProtected3').on('click', getResource('/defcon3'));
+    });
+</script>
+</body>
+</html>

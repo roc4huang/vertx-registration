@@ -17,18 +17,34 @@ void vertxStart(Future<Void> future) {
                     password: 'secret123',
                     passwordConfirm: 'secret123'
                 ]
-                vertx.eventBus().send('registration.register', msg, { res ->
-                    if (!res.succeeded()) {
-                        def reply = res.result().body()
+                vertx.eventBus().send('registration.register', msg, { res2 ->
+                    if (res2.succeeded()) {
+                        def reply = res2.result().body()
+                        println 'REG_REPLY ' + reply
                         def token = reply.token
+                        def confirmMsg = [ token: token ]
+                        vertx.eventBus().send('registration.confirm', confirmMsg, { res3 ->
+                            println 'CONF_REPLY ' + res3.result().body()
+                            def loginMsg = [ email: msg.email, password: msg.password ]
+                            vertx.eventBus().send('registration.login', msg, { res4 ->
+                                println 'LOGIN_REPLY ' + res4.result().body()
+                                token = res4.result().body()
+                            })
+                        })
                     } else {
-                        res.cause().printStackTrace()
+                        res2.cause().printStackTrace()
                     }
                 })
             }
         } else {
             res1.cause().printStackTrace()
             future.fail()
+        }
+    }
+
+    vertx.deployVerticle 'groovy:de.thokari.vertx.registration.httpEndpoint', [ config: appConfig.httpEndpoint ], { res2 ->
+        if (!res2.succeeded()) {
+            res2.cause().printStackTrace()
         }
     }
 

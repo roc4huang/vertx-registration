@@ -56,9 +56,9 @@ def mainVerticleName = 'groovy:de.thokari.vertx.registration.start'
 
 // declare resource directories to be on the classpath and copied into the jar file
 // during build time, the flyway plugin will use this to find migrations
-// during runtime, vertx will use this to load configuration
+// during runtime, vertx will use this to load configuration and web resources
 sourceSets.main.resources {
-    srcDirs = ['flyway', 'config']
+    srcDirs = ['flyway', 'config', 'web']
 }
 
 // configure shadowJar plugin
@@ -73,15 +73,23 @@ shadowJar {
 }
 
 // use ./gradlew run to start in dev mode
-def watchForChange = 'src/**/*.groovy'
+def watchForChange = 'src/**/*.groovy, web/**' // TODO use 'source' webroot directly during development time, via config
 def doOnChange = './gradlew classes'
 def config = 'config/dev.json'
+
 run {
     classpath = sourceSets.main.runtimeClasspath
     args = ['run', mainVerticleName, "--redeploy=$watchForChange", "--launcher-class=$mainClassName", "--on-redeploy=$doOnChange", "-conf=$config"]
 }
 
+// TODO doesn't work (on MacOS)
+task clearDb(type: Exec) {
+    commandLine '/usr/local/bin/psql vertx -C "DROP TABLE schema_version; DROP TABLE registration"'
+}
 
+task setupDb() {
+    dependsOn clearDb, flywayMigrate
+}
 
 task wrapper(type: Wrapper) {
     gradleVersion = '2.10'
