@@ -20,7 +20,7 @@ eb.consumer 'registration.register', { msg ->
     def email = msg.body().email
     def password = msg.body().password
     def passwordConfirm = msg.body().passwordConfirm
-    def permissions = msg.body().permissions // TODO save this
+    def permissions = msg.body().permissions
     if (!email.contains('@')) {
         replyError msg, 'Invalid email address'
     } else if (password.size() < 8) {
@@ -28,7 +28,7 @@ eb.consumer 'registration.register', { msg ->
     } else if (!(password.equals(passwordConfirm))) {
         replyError msg, 'Passwort not repeated correctly'
     } else {
-        def token = generateRegistrationToken(authProvider, email)
+        def token = generateEmailToken(authProvider, email)
         saveRegistration(dbClient, email, password, permissions, { res1 ->
             if (res1.succeeded()) {
                 sendEmail(mailClient, email, token, { res2 ->
@@ -86,9 +86,9 @@ def sendEmail (mailClient, email, token, cb) {
     mailClient.sendMail(mail, cb)
 }
 
-def generateRegistrationToken (authProvider, email) {
+def generateEmailToken (authProvider, email) {
     def payload = [ email: email ]
-    def expiresInMinutes = vertx.currentContext().config().registrationExpiresInMinutes
+    def expiresInMinutes = vertx.currentContext().config().emailExpiresInMinutes
     def options = [ expiresInMinutes: expiresInMinutes ]
     authProvider.generateToken payload, options
 }
@@ -112,7 +112,8 @@ def saveRegistration (dbClient, email, password, permissions, cb) {
                 java.sql.Date sqlDate = new java.sql.Date(new java.util.Date().time)
                 def params = [ email, false, hash, permissions.join(','), sqlDate ]
                 // TODO use array
-                conn.updateWithParams('INSERT INTO registration (email, email_confirmed, password, permissions, created) VALUES (?, ?, ?, ?, ?)', params, cb)
+                def query = 'INSERT INTO registration (email, email_confirmed, password, permissions, created) VALUES (?, ?, ?, ?, ?)'
+                conn.updateWithParams(query, params, cb)
             } else {
                 cb(res)
             }

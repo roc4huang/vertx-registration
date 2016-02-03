@@ -22,7 +22,7 @@
     <a href="#" id="getProtected1">Get Protected Resource (admin role required)</a><br>
     <div id="protected"></div>
     <br>
-    <button id="generateToken">Log out</button><br>
+    <button id="deleteToken">Log out</button><br>
 </div>
 <script>
     $(document).ready(function () {
@@ -70,6 +70,7 @@
         };
         $('#getProtected0').on('click', getResource(''));
         $('#getProtected1').on('click', getResource('/admin'));
+        $('#deleteToken').on('click', function () { $('#token').html('Current Token: ') });
     });
 </script>
 </body>

@@ -48,18 +48,15 @@ dependencies {
 version = '0.0.1'
 sourceCompatibility = '1.8' // vertx needs Java 8
 
-// this is used by the gradle application plugin, and also passed as argument to vertx for redeploy
-mainClassName = 'io.vertx.core.Launcher'
-
-// this is the entry point to the application
-def mainVerticleName = 'groovy:de.thokari.vertx.registration.start'
-
-// declare resource directories to be on the classpath and copied into the jar file
-// during build time, the flyway plugin will use this to find migrations
+// declare resource directories to be on the classpath and copied into the jar file,
+// during build time, the flyway plugin will use this to find migrations,
 // during runtime, vertx will use this to load configuration and web resources
 sourceSets.main.resources {
     srcDirs = ['flyway', 'config', 'web']
 }
+
+// this is the entry point to the application
+def mainVerticleName = 'groovy:de.thokari.vertx.registration.start'
 
 // configure shadowJar plugin
 shadowJar {
@@ -76,6 +73,9 @@ shadowJar {
 def watchForChange = 'src/**/*.groovy, config/**, web/**' // TODO use 'source' webroot directly during development time, via config
 def doOnChange = './gradlew classes'
 def config = 'config/dev.json'
+
+// this is used by the gradle application plugin, and also passed as argument to vertx for redeploy
+mainClassName = 'io.vertx.core.Launcher'
 
 run {
     classpath = sourceSets.main.runtimeClasspath
