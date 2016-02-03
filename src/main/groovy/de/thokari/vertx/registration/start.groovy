@@ -13,7 +13,7 @@ void vertxStart(Future<Void> future) {
             future.complete()
             vertx.setTimer 500, {
                 def msg = [
-                    email: 't.hirsch@sendandstore.de',
+                    email: 'email@test.de',
                     password: 'secret123',
                     passwordConfirm: 'secret123',
                     permissions: [ 'admin' ]

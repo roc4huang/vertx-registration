@@ -81,7 +81,7 @@ eb.consumer 'registration.login', { msg ->
 }
 
 def sendEmail (mailClient, email, token, cb) {
-    def mail = [ from: 'registration@sendandstore.de', to: email ]
+    def mail = [ from: 'registration@thokari.de', to: email ]
     println "Sending email to $email"
     mailClient.sendMail(mail, cb)
 }
