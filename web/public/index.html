@@ -9,7 +9,6 @@
 <div id="login">
     <input type="text" id="email" placeholder="Email"></input>
     <input type="password" id="password" placeholder="Password"></input>
-    <input type="text" id="roles" placeholder="Roles"></input>
     <br>
     <button id="generateToken">Log in</button><br>
     <br>
@@ -29,8 +28,7 @@
         $('#email').val('email@test.de')
         $('#password').val('secret123')
         $('#roles').val('admin')
-        var genToken = function(email, password, authorities) {
-            console.log(name, password, authorities)
+        var genToken = function(email, password) {
             $.ajax({
                 method: 'POST',
                 url: '/api/login',
@@ -38,7 +36,6 @@
                 data: JSON.stringify({
                     email: email,
                     password: password,
-                    authorities: authorities.split(',')
                 }),
                 success: function (text) {
                     $('#token').html('Current Token: ' + text);
@@ -48,8 +45,7 @@
         $('#generateToken').click(function () {
             var email = $('#email').val()
             var password = $('#password').val()
-            var roles = $('#roles').val()
-            genToken(email, password, roles)
+            genToken(email, password)
         });
         var getResource = function(authority) {
             return function () {
